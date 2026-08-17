@@ -1,4 +1,4 @@
--- Auto Shoot BangGang 
+-- Auto Shoot BangGang
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -10,9 +10,9 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
-getgenv().AstraAutoShotActive = false
-getgenv().AstraAutoEquipActive = false
-getgenv().AstraTargetPart = nil
+getgenv().JesushubAutoShotActive = false
+getgenv().JesushubAutoEquipActive = false
+getgenv().JesushubTargetPart = nil
 _G.AutoShootFovSize = 70
 _G.FovCircleVisible = false
 
@@ -30,8 +30,8 @@ pcall(function()
     local oldNamecall
     oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
         local method = getnamecallmethod()
-        if not checkcaller() and getgenv().AstraAutoShotActive and getgenv().AstraTargetPart then
-            local target = getgenv().AstraTargetPart
+        if not checkcaller() and getgenv().JesushubAutoShotActive and getgenv().JesushubTargetPart then
+            local target = getgenv().JesushubTargetPart
             if target and target.Parent then
                 if method == "Raycast" and self == workspace then
                     local origin, direction, p3 = ...
@@ -47,7 +47,7 @@ pcall(function()
                     end
                 end
             else
-                getgenv().AstraTargetPart = nil
+                getgenv().JesushubTargetPart = nil
             end
         end
         return oldNamecall(self, ...)
@@ -230,11 +230,10 @@ hideButton.MouseButton1Click:Connect(function()
     mainFrame.Visible = false
 end)
 
--- Funciones para actualizar los switches de forma visual cuando se desactiven automáticamente
 local function actualizarUIAutoShoot(estado)
-    getgenv().AstraAutoShotActive = estado
+    getgenv().JesushubAutoShotActive = estado
     if not estado then 
-        getgenv().AstraTargetPart = nil 
+        getgenv().JesushubTargetPart = nil 
         isShootingVisual = false
     end
     TweenService:Create(autoShootKnob, TweenInfo.new(0.2), {Position = estado and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)}):Play()
@@ -242,17 +241,17 @@ local function actualizarUIAutoShoot(estado)
 end
 
 local function actualizarUIAutoEquip(estado)
-    getgenv().AstraAutoEquipActive = estado
+    getgenv().JesushubAutoEquipActive = estado
     TweenService:Create(autoEquipKnob, TweenInfo.new(0.2), {Position = estado and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)}):Play()
     TweenService:Create(autoEquipTrack, TweenInfo.new(0.2), {BackgroundColor3 = estado and Color3.fromRGB(76, 175, 80) or Color3.fromRGB(45, 45, 45)}):Play()
 end
 
 autoShootTrack.MouseButton1Click:Connect(function()
-    actualizarUIAutoShoot(not getgenv().AstraAutoShotActive)
+    actualizarUIAutoShoot(not getgenv().JesushubAutoShotActive)
 end)
 
 autoEquipTrack.MouseButton1Click:Connect(function()
-    actualizarUIAutoEquip(not getgenv().AstraAutoEquipActive)
+    actualizarUIAutoEquip(not getgenv().JesushubAutoEquipActive)
 end)
 
 fovTrack.MouseButton1Click:Connect(function()
@@ -291,31 +290,21 @@ local function esPistolaValida(tool)
     return false
 end
 
--- Verificador inteligente de Lobby
-local function estaEnLobby()
-    local jugadoresActivos = 0
-    local lista = Players:GetPlayers()
-    for i = 1, #lista do
-        local p = lista[i]
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-            jugadoresActivos = jugadoresActivos + 1
-        end
-    end
-    if #lista < 2 or jugadoresActivos == 0 then
-        return true
-    end
-    return false
-end
-
 task.spawn(function()
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
 
-    local function esEnemigoAstra(p)
+    local function esEnemigoValido(p)
+        
+        local matchMode = p:GetAttribute("MatchModeType")
+        local team = p:GetAttribute("Team")
+        if not matchMode or not team then
+            return false
+        end
+
         if p ~= LocalPlayer and p.Character then
             local myTeam = LocalPlayer:GetAttribute("Team")
-            local targetTeam = p:GetAttribute("Team")
-            if myTeam and targetTeam then return myTeam ~= targetTeam end
+            if myTeam and team then return myTeam ~= team end
             if LocalPlayer.Team and p.Team then return LocalPlayer.Team ~= p.Team end
             return true
         end
@@ -325,19 +314,8 @@ task.spawn(function()
     while screenGui.Parent do
         task.wait(0.2)
 
-        -- Si el script detecta que estás en el Lobby, apaga automáticamente los toggles si estaban activos
-        if estaEnLobby() then
-            if getgenv().AstraAutoShotActive or getgenv().AstraAutoEquipActive then
-                actualizarUIAutoShoot(false)
-                actualizarUIAutoEquip(false)
-            end
-            getgenv().AstraTargetPart = nil
-            isShootingVisual = false
-            continue
-        end
-
-        if not getgenv().AstraAutoShotActive then
-            getgenv().AstraTargetPart = nil
+        if not getgenv().JesushubAutoShotActive then
+            getgenv().JesushubTargetPart = nil
             isShootingVisual = false
             continue
         end
@@ -359,7 +337,7 @@ task.spawn(function()
         local playersList = Players:GetPlayers()
         for i = 1, #playersList do
             local p = playersList[i]
-            if esEnemigoAstra(p) and p.Character then
+            if esEnemigoValido(p) and p.Character then
                 local enemyHum = p.Character:FindFirstChild("Humanoid")
                 if enemyHum and enemyHum.Health > 0 then
                     params.FilterDescendantsInstances = {char, p.Character}
@@ -382,7 +360,9 @@ task.spawn(function()
 
                             if pasaFov then
                                 local dist = (part.Position - myPos).Magnitude
-                                if dist < shortestDistance then
+                                local matchMode = p:GetAttribute("MatchModeType")
+                                local team = p:GetAttribute("Team")
+                                if dist < shortestDistance and matchMode and team then
                                     if not workspace:Raycast(headPos, part.Position - headPos, params) then
                                         shortestDistance = dist
                                         closestTargetPart = part
@@ -402,9 +382,9 @@ task.spawn(function()
         end
 
         if closestTargetPart then
-            getgenv().AstraTargetPart = closestTargetPart
+            getgenv().JesushubTargetPart = closestTargetPart
             
-            if getgenv().AstraAutoEquipActive and not armaActual and backpack then
+            if getgenv().JesushubAutoEquipActive and not armaActual and backpack then
                 for _, item in ipairs(backpack:GetChildren()) do
                     if esPistolaValida(item) then
                         humanoid:EquipTool(item)
@@ -425,10 +405,10 @@ task.spawn(function()
                 end)
             end
         else
-            getgenv().AstraTargetPart = nil
+            getgenv().JesushubTargetPart = nil
             isShootingVisual = false
 
-            if getgenv().AstraAutoEquipActive and armaActual and backpack and esPistolaValida(armaActual) then
+            if getgenv().JesushubAutoEquipActive and armaActual and backpack and esPistolaValida(armaActual) then
                 armaActual.Parent = backpack
             end
         end
